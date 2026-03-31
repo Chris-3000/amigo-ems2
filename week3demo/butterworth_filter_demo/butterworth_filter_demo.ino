@@ -97,7 +97,7 @@ double butterworth(double input) {
 }
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(57600);
   pinMode(ST_PIN, OUTPUT);
   lcd_init();
   // calibration();

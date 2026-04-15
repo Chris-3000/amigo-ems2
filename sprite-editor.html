@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sprite Editor to Arduino TFT Code</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --border: #334155;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(180deg, #0b1220 0%, #111827 100%);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 2rem;
+    }
+
+    p {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 320px 1fr 380px;
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .panel {
+      background: rgba(17, 24, 39, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    }
+
+    .panel h2 {
+      margin-top: 0;
+      font-size: 1.05rem;
+    }
+
+    .controls {
+      display: grid;
+      gap: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.92rem;
+      margin-bottom: 6px;
+    }
+
+    input, select, button, textarea {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 10px 12px;
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      transition: 0.15s ease;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    .tool-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .tool-buttons button.active {
+      border-color: var(--accent);
+      outline: 2px solid rgba(56, 189, 248, 0.35);
+    }
+
+    .canvas-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: centre;
+      min-height: 640px;
+    }
+
+    canvas {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      touch-action: none;
+    }
+
+    .preview-box {
+      display: flex;
+      justify-content: centre;
+      align-items: centre;
+      background: #0b1220;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      min-height: 220px;
+    }
+
+    .code-area {
+      min-height: 280px;
+      resize: vertical;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+
+    .small {
+      font-size: 0.84rem;
+      color: var(--muted);
+    }
+
+    .footer-note {
+      margin-top: 14px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1100px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .canvas-wrap {
+        min-height: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Sprite Editor to Arduino TFT Code</h1>
+    <p>
+      Create a pixel sprite, preview it, and export it as Arduino code for TFT displays.
+      This version exports a <strong>16-bit RGB565</strong> array that works well with libraries like Adafruit_GFX using <code>drawRGBBitmap()</code>.
+    </p>
+
+    <div class="layout">
+      <section class="panel">
+        <h2>Sprite Setup</h2>
+        <div class="controls">
+          <div class="row">
+            <div>
+              <label for="spriteName">Sprite name</label>
+              <input id="spriteName" value="mySprite" />
+            </div>
+            <div>
+              <label for="presetSize">Preset size</label>
+              <select id="presetSize">
+                <option value="8x8">8 × 8</option>
+                <option value="16x16" selected>16 × 16</option>
+                <option value="24x24">24 × 24</option>
+                <option value="32x32">32 × 32</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label for="gridWidth">Width</label>
+              <input id="gridWidth" type="number" min="1" max="64" value="16" />
+            </div>
+            <div>
+              <label for="gridHeight">Height</label>
+              <input id="gridHeight" type="number" min="1" max="64" value="16" />
+            </div>
+          </div>
+
+          <button id="applySizeBtn">Apply size</button>
+
+          <div>
+            <label for="colourPicker">Current colour</label>
+            <input id="colourPicker" type="color" value="#000000" />
+          </div>
+
+          <div>
+            <label>Quick palette</label>
+            <div class="row-3" id="palette"></div>
+          </div>
+
+          <div>
+            <label>Tools</label>
+            <div class="tool-buttons">
+              <button id="penBtn" class="active">Pen</button>
+              <button id="eraserBtn">Eraser</button>
+              <button id="fillBtn">Fill</button>
+            </div>
+          </div>
+
+          <div class="row">
+            <button id="clearBtn">Clear sprite</button>
+            <button id="generateBtn">Generate code</button>
+          </div>
+
+          <div class="row">
+            <button id="copyBtn">Copy code</button>
+            <button id="downloadBtn">Download .h</button>
+          </div>
+
+          <div>
+            <label for="bgToggle">Transparent background handling</label>
+            <select id="bgToggle">
+              <option value="solid" selected>Export all pixels</option>
+              <option value="transparent">Treat #ffffff as transparent note</option>
+            </select>
+            <div class="small">This app still exports full RGB565 pixel arrays. Transparent mode only adds a note in the output.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Editor</h2>
+        <div class="canvas-wrap">
+          <canvas id="spriteCanvas" width="512" height="512"></canvas>
+        </div>
+        <div class="footer-note">
+          Left click or drag to draw. The editor scales automatically so you can work on small sprites easily.
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Preview and Arduino Output</h2>
+        <div class="preview-box">
+          <canvas id="previewCanvas" width="192" height="192"></canvas>
+        </div>
+
+        <div style="margin-top: 16px;">
+          <label for="codeOutput">Generated code</label>
+          <textarea id="codeOutput" class="code-area" spellcheck="false"></textarea>
+        </div>
+
+        <div class="footer-note">
+          Example use: <code>tft.drawRGBBitmap(x, y, mySprite, WIDTH, HEIGHT);</code>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const spriteCanvas = document.getElementById('spriteCanvas');
+    const spriteCtx = spriteCanvas.getContext('2d');
+    const previewCanvas = document.getElementById('previewCanvas');
+    const previewCtx = previewCanvas.getContext('2d');
+
+    const gridWidthInput = document.getElementById('gridWidth');
+    const gridHeightInput = document.getElementById('gridHeight');
+    const presetSize = document.getElementById('presetSize');
+    const colourPicker = document.getElementById('colourPicker');
+    const spriteName = document.getElementById('spriteName');
+    const codeOutput = document.getElementById('codeOutput');
+    const bgToggle = document.getElementById('bgToggle');
+
+    const penBtn = document.getElementById('penBtn');
+    const eraserBtn = document.getElementById('eraserBtn');
+    const fillBtn = document.getElementById('fillBtn');
+
+    const paletteColours = [
+      '#000000', '#ffffff', '#ff0000',
+      '#00ff00', '#0000ff', '#ffff00',
+      '#ff00ff', '#00ffff', '#808080'
+    ];
+
+    let gridWidth = 16;
+    let gridHeight = 16;
+    let pixels = [];
+    let currentTool = 'pen';
+    let drawing = false;
+
+    function makeEmptyPixels(w, h, fill = '#ffffff') {
+      return Array.from({ length: h }, () => Array.from({ length: w }, () => fill));
+    }
+
+    function setTool(tool) {
+      currentTool = tool;
+      [penBtn, eraserBtn, fillBtn].forEach(btn => btn.classList.remove('active'));
+      if (tool === 'pen') penBtn.classList.add('active');
+      if (tool === 'eraser') eraserBtn.classList.add('active');
+      if (tool === 'fill') fillBtn.classList.add('active');
+    }
+
+    function createPalette() {
+      const palette = document.getElementById('palette');
+      palette.innerHTML = '';
+      paletteColours.forEach(col => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.style.background = col;
+        btn.style.height = '42px';
+        btn.style.padding = '0';
+        btn.style.border = '1px solid #475569';
+        btn.style.borderRadius = '10px';
+        btn.title = col;
+        btn.addEventListener('click', () => {
+          colourPicker.value = rgbToHex(col);
+        });
+        palette.appendChild(btn);
+      });
+    }
+
+    function rgbToHex(col) {
+      if (col.startsWith('#')) return col;
+      return '#000000';
+    }
+
+    function resizeGrid(newW, newH) {
+      const oldPixels = pixels;
+      const next = makeEmptyPixels(newW, newH, '#ffffff');
+      for (let y = 0; y < Math.min(newH, oldPixels.length); y++) {
+        for (let x = 0; x < Math.min(newW, oldPixels[0]?.length || 0); x++) {
+          next[y][x] = oldPixels[y][x];
+        }
+      }
+      gridWidth = newW;
+      gridHeight = newH;
+      pixels = next;
+      drawEditor();
+      drawPreview();
+    }
+
+    function drawEditor() {
+      spriteCtx.clearRect(0, 0, spriteCanvas.width, spriteCanvas.height);
+      const cellSize = Math.min(spriteCanvas.width / gridWidth, spriteCanvas.height / gridHeight);
+      const drawWidth = cellSize * gridWidth;
+      const drawHeight = cellSize * gridHeight;
+      const offsetX = (spriteCanvas.width - drawWidth) / 2;
+      const offsetY = (spriteCanvas.height - drawHeight) / 2;
+
+      spriteCtx.fillStyle = '#ffffff';
+      spriteCtx.fillRect(offsetX, offsetY, drawWidth, drawHeight);
+
+      for (let y = 0; y < gridHeight; y++) {
+        for (let x = 0; x < gridWidth; x++) {
+          spriteCtx.fillStyle = pixels[y][x];
+          spriteCtx.fillRect(offsetX + x * cellSize, offsetY + y * cellSize, cellSize, cellSize);
+          spriteCtx.strokeStyle = '#cbd5e1';
+          spriteCtx.lineWidth = 1;
+          spriteCtx.strokeRect(offsetX + x * cellSize, offsetY + y * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+
+    function drawPreview() {
+      previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      const cellSize = Math.min(previewCanvas.width / gridWidth, previewCanvas.height / gridHeight);
+      const drawWidth = cellSize * gridWidth;
+      const drawHeight = cellSize * gridHeight;
+      const offsetX = (previewCanvas.width - drawWidth) / 2;
+      const offsetY = (previewCanvas.height - drawHeight) / 2;
+
+      previewCtx.fillStyle = '#111827';
+      previewCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+
+      for (let y = 0; y < gridHeight; y++) {
+        for (let x = 0; x < gridWidth; x++) {
+          previewCtx.fillStyle = pixels[y][x];
+          previewCtx.fillRect(offsetX + x * cellSize, offsetY + y * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+
+    function getCellFromEvent(event) {
+      const rect = spriteCanvas.getBoundingClientRect();
+      const scaleX = spriteCanvas.width / rect.width;
+      const scaleY = spriteCanvas.height / rect.height;
+      const mx = (event.clientX - rect.left) * scaleX;
+      const my = (event.clientY - rect.top) * scaleY;
+
+      const cellSize = Math.min(spriteCanvas.width / gridWidth, spriteCanvas.height / gridHeight);
+      const drawWidth = cellSize * gridWidth;
+      const drawHeight = cellSize * gridHeight;
+      const offsetX = (spriteCanvas.width - drawWidth) / 2;
+      const offsetY = (spriteCanvas.height - drawHeight) / 2;
+
+      const x = Math.floor((mx - offsetX) / cellSize);
+      const y = Math.floor((my - offsetY) / cellSize);
+
+      if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight) return null;
+      return { x, y };
+    }
+
+    function floodFill(startX, startY, targetColour, replacementColour) {
+      if (targetColour === replacementColour) return;
+      const stack = [{ x: startX, y: startY }];
+
+      while (stack.length) {
+        const { x, y } = stack.pop();
+        if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight) continue;
+        if (pixels[y][x] !== targetColour) continue;
+        pixels[y][x] = replacementColour;
+        stack.push({ x: x + 1, y });
+        stack.push({ x: x - 1, y });
+        stack.push({ x, y: y + 1 });
+        stack.push({ x, y: y - 1 });
+      }
+    }
+
+    function paintCell(cell) {
+      if (!cell) return;
+      if (currentTool === 'pen') {
+        pixels[cell.y][cell.x] = colourPicker.value;
+      } else if (currentTool === 'eraser') {
+        pixels[cell.y][cell.x] = '#ffffff';
+      } else if (currentTool === 'fill') {
+        floodFill(cell.x, cell.y, pixels[cell.y][cell.x], colourPicker.value);
+      }
+      drawEditor();
+      drawPreview();
+    }
+
+    function hexToRgb(hex) {
+      const clean = hex.replace('#', '');
+      const bigint = parseInt(clean, 16);
+      return {
+        r: (bigint >> 16) & 255,
+        g: (bigint >> 8) & 255,
+        b: bigint & 255
+      };
+    }
+
+    function rgb888To565(hex) {
+      const { r, g, b } = hexToRgb(hex);
+      const value = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+      return '0x' + value.toString(16).toUpperCase().padStart(4, '0');
+    }
+
+    function sanitiseName(name) {
+      const cleaned = name.replace(/[^a-zA-Z0-9_]/g, '_');
+      if (!cleaned) return 'mySprite';
+      if (/^[0-9]/.test(cleaned)) return '_' + cleaned;
+      return cleaned;
+    }
+
+    function generateCode() {
+      const safeName = sanitiseName(spriteName.value.trim());
+      const flat = [];
+      for (let y = 0; y < gridHeight; y++) {
+        for (let x = 0; x < gridWidth; x++) {
+          flat.push(rgb888To565(pixels[y][x]));
+        }
+      }
+
+      const lines = [];
+      for (let i = 0; i < flat.length; i += gridWidth) {
+        lines.push('  ' + flat.slice(i, i + gridWidth).join(', '));
+      }
+
+      const transparentNote = bgToggle.value === 'transparent'
+        ? '// Note: white pixels were intended as background/transparent markers.\n'
+        : '';
+
+      const code = `// Generated by Sprite Editor to Arduino TFT Code\n// Size: ${gridWidth} x ${gridHeight}\n${transparentNote}const uint16_t ${safeName}[${gridWidth * gridHeight}] PROGMEM = {\n${lines.join(',\n')}\n};\n\nconst int ${safeName}_width = ${gridWidth};\nconst int ${safeName}_height = ${gridHeight};\n\n// Example:\n// tft.drawRGBBitmap(0, 0, ${safeName}, ${safeName}_width, ${safeName}_height);`;
+
+      codeOutput.value = code;
+      return code;
+    }
+
+    function downloadHeaderFile() {
+      const code = generateCode();
+      const safeName = sanitiseName(spriteName.value.trim());
+      const blob = new Blob([code], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${safeName}.h`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    spriteCanvas.addEventListener('pointerdown', (event) => {
+      drawing = true;
+      paintCell(getCellFromEvent(event));
+    });
+
+    spriteCanvas.addEventListener('pointermove', (event) => {
+      if (!drawing) return;
+      if (currentTool === 'fill') return;
+      paintCell(getCellFromEvent(event));
+    });
+
+    window.addEventListener('pointerup', () => {
+      drawing = false;
+    });
+
+    presetSize.addEventListener('change', () => {
+      const [w, h] = presetSize.value.split('x').map(Number);
+      gridWidthInput.value = w;
+      gridHeightInput.value = h;
+    });
+
+    document.getElementById('applySizeBtn').addEventListener('click', () => {
+      const w = Math.max(1, Math.min(64, parseInt(gridWidthInput.value, 10) || 16));
+      const h = Math.max(1, Math.min(64, parseInt(gridHeightInput.value, 10) || 16));
+      resizeGrid(w, h);
+      generateCode();
+    });
+
+    penBtn.addEventListener('click', () => setTool('pen'));
+    eraserBtn.addEventListener('click', () => setTool('eraser'));
+    fillBtn.addEventListener('click', () => setTool('fill'));
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      pixels = makeEmptyPixels(gridWidth, gridHeight, '#ffffff');
+      drawEditor();
+      drawPreview();
+      generateCode();
+    });
+
+    document.getElementById('generateBtn').addEventListener('click', generateCode);
+
+    document.getElementById('copyBtn').addEventListener('click', async () => {
+      generateCode();
+      await navigator.clipboard.writeText(codeOutput.value);
+    });
+
+    document.getElementById('downloadBtn').addEventListener('click', downloadHeaderFile);
+
+    createPalette();
+    pixels = makeEmptyPixels(gridWidth, gridHeight, '#ffffff');
+    drawEditor();
+    drawPreview();
+    generateCode();
+  </script>
+</body>
+</html>
